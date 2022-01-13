@@ -1,0 +1,19 @@
+{
+  "name": "notionreads",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "directories": {
+    "lib": "lib"
+  },
+  "author": "ErBlack",
+  "license": "ISC",
+  "dependencies": {
+    "@notionhq/client": "^0.4.12",
+    "dotenv": "^11.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^2.5.1"
+  }
+}
