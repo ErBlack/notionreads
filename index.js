@@ -13,7 +13,7 @@ const books = readCsv('goodreads_library_export.csv')
 const getUrl = (id) => `https://www.goodreads.com/book/show/${id}`;
 const getReadYear = (date) => String(new Date(date).getFullYear());
 
-async function createEntry({ Title: title, 'Book Id': id, 'My Rating': rating, 'Date Read': read }) {
+async function createPage({ Title: title, 'Book Id': id, 'My Rating': rating, 'Date Read': read }) {
     try {
         await notion.pages.create({
             parent: { database_id: DATABASE_ID },
@@ -54,7 +54,7 @@ async function createEntry({ Title: title, 'Book Id': id, 'My Rating': rating, '
     }
 }
 
-async function findEntry({ 'Book Id': id }) {
+async function findPage({ 'Book Id': id }) {
     try {
         const books = await notion.databases.query({
             database_id: DATABASE_ID,
@@ -72,7 +72,7 @@ async function findEntry({ 'Book Id': id }) {
     }
 }
 
-async function updateEntry(
+async function updatePage(
     { 'Date Read': newRead },
     {
         id,
@@ -86,7 +86,7 @@ async function updateEntry(
     }));
 
     try {
-        const response = await notion.pages.update({
+        await notion.pages.update({
             page_id: id,
             properties: {
                 Read: {
@@ -106,18 +106,18 @@ async function updateEntry(
 async function processBook(book) {
     process.stdout.write(`Processing book #${book['Book Id']}.`);
 
-    const foundEntry = await findEntry(book);
+    const foundPage = await findPage(book);
 
-    if (foundEntry) {
+    if (foundPage) {
         process.stdout.write(' Found.');
 
-        if (await updateEntry(book, foundEntry)) {
+        if (await updatePage(book, foundPage)) {
             process.stdout.write(' Updated.');
         }
     } else {
         process.stdout.write(' New.');
 
-        if (await createEntry(book)) {
+        if (await createPage(book)) {
             process.stdout.write(' Created.');
         }
     }
