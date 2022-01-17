@@ -31,7 +31,7 @@ async function getCover(link) {
 
     return src;
 }
-//5291430c-7e9a-49a3-995a-c02affa45c58
+
 async function getAllPages() {
     try {
         const pages = [];

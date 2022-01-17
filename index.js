@@ -1,6 +1,7 @@
 import { readCsv } from './lib/csv.js';
 import { notion } from './lib/notion.js';
 import { config } from 'dotenv';
+import { getBookProps, getUrl } from './lib/goodreads.js';
 
 config();
 
@@ -8,15 +9,28 @@ const { DATABASE_ID } = process.env;
 
 const books = readCsv('goodreads_library_export.csv')
     .filter((b) => b['Read Count'] !== '0')
-    .filter((b) => Boolean(b['Date Read']));
+    .filter((b) => !Boolean(b['Date Read']))
+    .filter((b) => b['Exclusive Shelf'] === 'read')
+    .filter((b) => b['Book Id'] !== '672963')
+    .map(({ Title: title, 'Book Id': id, 'Date Read': dateRead }) => ({
+        id,
+        title,
+        readYear: dateRead ? String(new Date(dateRead).getFullYear()) : undefined,
+    }));
 
-const getUrl = (id) => `https://www.goodreads.com/book/show/${id}`;
-const getReadYear = (date) => String(new Date(date).getFullYear());
-
-async function createPage({ Title: title, 'Book Id': id, 'My Rating': rating, 'Date Read': read }) {
+async function createPage({ id, title, readYear }) {
     try {
+        const { cover } = await getBookProps(id);
+
         await notion.pages.create({
             parent: { database_id: DATABASE_ID },
+            icon: cover
+                ? {
+                      external: {
+                          url: cover,
+                      },
+                  }
+                : undefined,
             properties: {
                 Name: {
                     title: [
@@ -30,19 +44,18 @@ async function createPage({ Title: title, 'Book Id': id, 'My Rating': rating, 'D
                 id: {
                     number: Number(id),
                 },
-                Rating: {
-                    number: Number(rating),
-                },
                 Link: {
                     url: getUrl(id),
                 },
-                Read: {
-                    multi_select: [
-                        {
-                            name: getReadYear(read),
-                        },
-                    ],
-                },
+                Read: readYear
+                    ? {
+                          multi_select: [
+                              {
+                                  name: readYear,
+                              },
+                          ],
+                      }
+                    : undefined,
             },
         });
 
@@ -54,7 +67,7 @@ async function createPage({ Title: title, 'Book Id': id, 'My Rating': rating, 'D
     }
 }
 
-async function findPage({ 'Book Id': id }) {
+async function findPage({ id }) {
     try {
         const books = await notion.databases.query({
             database_id: DATABASE_ID,
@@ -73,7 +86,7 @@ async function findPage({ 'Book Id': id }) {
 }
 
 async function updatePage(
-    { 'Date Read': newRead },
+    { readYear: newReadYear },
     {
         id,
         properties: {
@@ -81,7 +94,11 @@ async function updatePage(
         },
     },
 ) {
-    const read = [...new Set([...prevRead.map(({ name }) => name), getReadYear(newRead)])].map((name) => ({
+    if (!newReadYear) {
+        return false;
+    }
+
+    const read = [...new Set([...prevRead.map(({ name }) => name), newReadYear])].map((name) => ({
         name,
     }));
 
@@ -104,7 +121,7 @@ async function updatePage(
 }
 
 async function processBook(book) {
-    process.stdout.write(`Processing book #${book['Book Id']}.`);
+    process.stdout.write(`Processing book #${book.id}. ${book.title}.`);
 
     const foundPage = await findPage(book);
 
